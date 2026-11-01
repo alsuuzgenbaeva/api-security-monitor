@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: api-security-monitor
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/api_security_db
+    username: postgres
+    password: ${DB_PASSWORD}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  address: 127.0.0.1
+  port: 8080
