@@ -1,8 +1,10 @@
 package com.apisecurity.monitor.requestlog.service;
 
+import com.apisecurity.monitor.requestlog.event.RequestLoggedEvent;
 import com.apisecurity.monitor.requestlog.model.ApiRequestLog;
 import com.apisecurity.monitor.requestlog.model.RequestLogData;
 import com.apisecurity.monitor.requestlog.repository.ApiRequestLogRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,9 +19,11 @@ public class ApiRequestLogService {
     private static final int MAX_PATH_LENGTH = 2048;
 
     private final ApiRequestLogRepository repository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ApiRequestLogService(ApiRequestLogRepository repository) {
+    public ApiRequestLogService(ApiRequestLogRepository repository, ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -35,7 +39,12 @@ public class ApiRequestLogService {
                 Math.max(0, data.durationMs())
         );
 
-        repository.saveAndFlush(new ApiRequestLog(safeData));
+        ApiRequestLog savedLog = repository.saveAndFlush(new ApiRequestLog(safeData));
+        eventPublisher.publishEvent(new RequestLoggedEvent(
+                savedLog.getId(),
+                savedLog.getRequestedAt(),
+                savedLog.getClientIp()
+        ));
     }
 
     private String truncate(String value, int maximumLength) {

@@ -19,6 +19,12 @@ monitoring:
     excluded-paths:
       - /error
       - /favicon.ico
+  anomaly-detection:
+    excessive-requests:
+      enabled: true
+      threshold: 5
+      window: 10s
+      suppression-period: 30s
 
 server:
   address: 127.0.0.1
