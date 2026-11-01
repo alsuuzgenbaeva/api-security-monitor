@@ -11,7 +11,14 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
+
+monitoring:
+  request-logging:
+    enabled: true
+    excluded-paths:
+      - /error
+      - /favicon.ico
 
 server:
   address: 127.0.0.1

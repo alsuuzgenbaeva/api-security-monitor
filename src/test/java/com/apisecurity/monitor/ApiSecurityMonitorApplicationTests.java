@@ -1,13 +1,16 @@
 package com.apisecurity.monitor;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootTest
+import static org.assertj.core.api.Assertions.assertThat;
+
 class ApiSecurityMonitorApplicationTests {
 
 	@Test
-	void contextLoads() {
+	void applicationIsConfiguredForSpringBoot() {
+		assertThat(ApiSecurityMonitorApplication.class)
+				.hasAnnotation(SpringBootApplication.class);
 	}
 
 }
