@@ -15,4 +15,6 @@ public interface SecurityEventRepository extends JpaRepository<SecurityEvent, Lo
             String clientIp,
             Instant cutoff
     );
+
+    long countByOccurredAtGreaterThanEqual(Instant cutoff);
 }

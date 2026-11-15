@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>API Security Monitoring Dashboard</title>
+    <style>
+        :root {
+            --navy: #10233f;
+            --navy-soft: #193a61;
+            --blue: #2367d1;
+            --blue-soft: #eaf2ff;
+            --background: #f3f6fa;
+            --surface: #ffffff;
+            --border: #dbe3ee;
+            --text: #182230;
+            --muted: #657287;
+            --success: #18794e;
+            --warning: #9a6700;
+            --danger: #c9372c;
+            --shadow: 0 10px 30px rgba(16, 35, 63, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-width: 320px;
+            background: var(--background);
+            color: var(--text);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        header {
+            background: linear-gradient(120deg, var(--navy), var(--navy-soft));
+            color: white;
+            padding: 28px 0 54px;
+        }
+
+        .container { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+
+        .header-row, .section-heading, .pagination, .refresh-state {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        h1 { margin: 0 0 7px; font-size: clamp(1.55rem, 3vw, 2.25rem); letter-spacing: -0.025em; }
+        .subtitle { margin: 0; color: #c8d8ec; }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            background: var(--blue);
+            color: white;
+            padding: 10px 16px;
+            font: inherit;
+            font-weight: 650;
+            cursor: pointer;
+            transition: opacity 120ms ease, transform 120ms ease;
+        }
+
+        button:hover:not(:disabled) { transform: translateY(-1px); }
+        button:disabled { cursor: not-allowed; opacity: 0.5; }
+        .refresh-button { background: white; color: var(--navy); min-width: 104px; }
+
+        main { margin-top: -30px; padding-bottom: 44px; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .metric, .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .metric { border-radius: 11px; padding: 18px; min-height: 108px; }
+        .metric-label { color: var(--muted); font-size: 0.82rem; font-weight: 650; }
+        .metric-value { display: block; margin-top: 8px; font-size: 1.75rem; font-weight: 750; }
+        .metric-detail { color: var(--muted); font-size: 0.76rem; }
+
+        .panel { border-radius: 12px; margin-top: 18px; overflow: hidden; }
+        .section-heading { padding: 19px 20px; border-bottom: 1px solid var(--border); }
+        h2 { margin: 0; font-size: 1.05rem; }
+        .section-note { margin: 4px 0 0; color: var(--muted); font-size: 0.82rem; }
+
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 780px; }
+        th, td { padding: 12px 16px; border-bottom: 1px solid #edf1f6; text-align: left; vertical-align: top; }
+        th { background: #f8fafc; color: var(--muted); font-size: 0.73rem; letter-spacing: 0.045em; text-transform: uppercase; }
+        td { font-size: 0.86rem; }
+        tbody tr:last-child td { border-bottom: 0; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.8rem; }
+        .path { max-width: 330px; overflow-wrap: anywhere; }
+        .reason { min-width: 300px; max-width: 520px; line-height: 1.45; }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 4px 9px;
+            font-size: 0.72rem;
+            font-weight: 750;
+        }
+
+        .risk-low { color: #166534; background: #dcfce7; }
+        .risk-medium { color: #854d0e; background: #fef3c7; }
+        .risk-high, .risk-critical { color: #991b1b; background: #fee2e2; }
+        .status-ok { color: var(--success); background: #e6f6ed; }
+        .status-warning { color: var(--warning); background: #fff3cd; }
+        .status-error { color: var(--danger); background: #ffebe9; }
+
+        .state-row td { padding: 34px 16px; color: var(--muted); text-align: center; }
+        .state-row.error td { color: var(--danger); }
+        .pagination { padding: 13px 18px; border-top: 1px solid var(--border); background: #fbfcfe; }
+        .pagination button { padding: 7px 12px; background: var(--navy-soft); font-size: 0.8rem; }
+        .page-label, #last-updated { color: var(--muted); font-size: 0.78rem; }
+        .refresh-state { justify-content: flex-end; margin: 4px 0 -4px; min-height: 22px; }
+
+        @media (max-width: 900px) {
+            .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .metric:last-child { grid-column: span 2; }
+        }
+
+        @media (max-width: 600px) {
+            .header-row { align-items: flex-start; flex-direction: column; }
+            header { padding-bottom: 48px; }
+            .metrics { grid-template-columns: 1fr; }
+            .metric:last-child { grid-column: auto; }
+            .section-heading { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="container header-row">
+        <div>
+            <h1>API Security Monitoring Dashboard</h1>
+            <p class="subtitle">Local, read-only visibility into API traffic and anomaly detections</p>
+        </div>
+        <button id="refresh" class="refresh-button" type="button">Refresh</button>
+    </div>
+</header>
+
+<main class="container">
+    <section class="metrics" aria-label="Monitoring summary">
+        <article class="metric"><span class="metric-label">Total requests</span><strong class="metric-value" id="total-requests">—</strong><span class="metric-detail">All persisted records</span></article>
+        <article class="metric"><span class="metric-label">Requests / 24h</span><strong class="metric-value" id="recent-requests">—</strong><span class="metric-detail">Rolling 24-hour period</span></article>
+        <article class="metric"><span class="metric-label">Errors / 24h</span><strong class="metric-value" id="recent-errors">—</strong><span class="metric-detail">HTTP status 400 or above</span></article>
+        <article class="metric"><span class="metric-label">Security events</span><strong class="metric-value" id="total-events">—</strong><span class="metric-detail">All persisted detections</span></article>
+        <article class="metric"><span class="metric-label">Events / 24h</span><strong class="metric-value" id="recent-events">—</strong><span class="metric-detail">Rolling 24-hour period</span></article>
+    </section>
+
+    <div class="refresh-state" aria-live="polite"><span id="last-updated">Loading dashboard…</span></div>
+
+    <section class="panel" aria-labelledby="requests-title">
+        <div class="section-heading">
+            <div><h2 id="requests-title">Recent API requests</h2><p class="section-note">Newest persisted request metadata first</p></div>
+            <span class="badge status-ok">Metadata only</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Time</th><th>Client IP</th><th>Method</th><th>Path</th><th>Status</th><th>Duration</th></tr></thead>
+                <tbody id="request-rows"><tr class="state-row"><td colspan="6">Loading requests…</td></tr></tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <button id="requests-prev" type="button">Previous</button>
+            <span id="requests-page" class="page-label">Page —</span>
+            <button id="requests-next" type="button">Next</button>
+        </div>
+    </section>
+
+    <section class="panel" aria-labelledby="events-title">
+        <div class="section-heading">
+            <div><h2 id="events-title">Detected security events</h2><p class="section-note">Rule-based detections; events do not automatically block traffic</p></div>
+            <span class="badge risk-medium">Risk review</span>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Time</th><th>Type</th><th>Risk</th><th>Client IP</th><th>Detection reason</th><th>Observed</th></tr></thead>
+                <tbody id="event-rows"><tr class="state-row"><td colspan="6">Loading events…</td></tr></tbody>
+            </table>
+        </div>
+        <div class="pagination">
+            <button id="events-prev" type="button">Previous</button>
+            <span id="events-page" class="page-label">Page —</span>
+            <button id="events-next" type="button">Next</button>
+        </div>
+    </section>
+</main>
+
+<script>
+    "use strict";
+
+    const pageSize = 15;
+    const state = { requestsPage: 0, eventsPage: 0, refreshing: false };
+    const byId = (id) => document.getElementById(id);
+    const numberFormat = new Intl.NumberFormat();
+    const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "medium" });
+
+    function setText(id, value) { byId(id).textContent = value; }
+    function formatDate(value) { return value ? dateFormat.format(new Date(value)) : "—"; }
+
+    async function getJson(url) {
+        const response = await fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+        const contentType = response.headers.get("content-type") || "";
+        if (!response.ok || !contentType.includes("application/json")) {
+            throw new Error(response.status === 401 || response.redirected ? "Session expired; sign in again." : `Request failed (${response.status}).`);
+        }
+        return response.json();
+    }
+
+    function stateRow(target, columns, message, error = false) {
+        target.replaceChildren();
+        const row = document.createElement("tr");
+        row.className = `state-row${error ? " error" : ""}`;
+        const cell = document.createElement("td");
+        cell.colSpan = columns;
+        cell.textContent = message;
+        row.appendChild(cell);
+        target.appendChild(row);
+    }
+
+    function cell(row, value, className = "") {
+        const element = document.createElement("td");
+        element.textContent = value;
+        if (className) element.className = className;
+        row.appendChild(element);
+        return element;
+    }
+
+    function badgeCell(row, value, className) {
+        const container = cell(row, "");
+        const badge = document.createElement("span");
+        badge.className = `badge ${className}`;
+        badge.textContent = value;
+        container.appendChild(badge);
+    }
+
+    function statusClass(status) {
+        if (status >= 500) return "status-error";
+        if (status >= 400) return "status-warning";
+        return "status-ok";
+    }
+
+    async function loadSummary() {
+        const summary = await getJson("/api/monitoring/summary");
+        setText("total-requests", numberFormat.format(summary.totalRequests));
+        setText("recent-requests", numberFormat.format(summary.requestsLast24Hours));
+        setText("recent-errors", numberFormat.format(summary.errorsLast24Hours));
+        setText("total-events", numberFormat.format(summary.totalSecurityEvents));
+        setText("recent-events", numberFormat.format(summary.securityEventsLast24Hours));
+        return summary.generatedAt;
+    }
+
+    async function loadRequests() {
+        const rows = byId("request-rows");
+        stateRow(rows, 6, "Loading requests…");
+        try {
+            const data = await getJson(`/api/monitoring/requests?page=${state.requestsPage}&size=${pageSize}`);
+            rows.replaceChildren();
+            if (data.content.length === 0) stateRow(rows, 6, "No request logs are available.");
+            data.content.forEach((item) => {
+                const row = document.createElement("tr");
+                cell(row, formatDate(item.requestedAt));
+                cell(row, item.clientIp, "mono");
+                cell(row, item.httpMethod, "mono");
+                cell(row, item.requestPath, "mono path");
+                badgeCell(row, String(item.responseStatus), statusClass(item.responseStatus));
+                cell(row, `${item.durationMs} ms`);
+                rows.appendChild(row);
+            });
+            updatePagination("requests", data);
+        } catch (error) {
+            stateRow(rows, 6, error.message, true);
+            throw error;
+        }
+    }
+
+    async function loadEvents() {
+        const rows = byId("event-rows");
+        stateRow(rows, 6, "Loading events…");
+        try {
+            const data = await getJson(`/api/monitoring/events?page=${state.eventsPage}&size=${pageSize}`);
+            rows.replaceChildren();
+            if (data.content.length === 0) stateRow(rows, 6, "No security events have been detected.");
+            data.content.forEach((item) => {
+                const row = document.createElement("tr");
+                cell(row, formatDate(item.occurredAt));
+                cell(row, item.eventType.replaceAll("_", " "));
+                badgeCell(row, item.riskLevel, `risk-${item.riskLevel.toLowerCase()}`);
+                cell(row, item.clientIp, "mono");
+                cell(row, item.detectionReason, "reason");
+                cell(row, `${item.observedRequestCount} / ${item.configuredThreshold} in ${item.windowSeconds}s`);
+                rows.appendChild(row);
+            });
+            updatePagination("events", data);
+        } catch (error) {
+            stateRow(rows, 6, error.message, true);
+            throw error;
+        }
+    }
+
+    function updatePagination(kind, data) {
+        byId(`${kind}-prev`).disabled = data.first;
+        byId(`${kind}-next`).disabled = data.last;
+        const displayedPage = data.totalPages === 0 ? 0 : data.page + 1;
+        setText(`${kind}-page`, `Page ${displayedPage} of ${data.totalPages} · ${numberFormat.format(data.totalElements)} records`);
+    }
+
+    async function refreshAll(resetPages = false) {
+        if (state.refreshing) return;
+        state.refreshing = true;
+        if (resetPages) { state.requestsPage = 0; state.eventsPage = 0; }
+        byId("refresh").disabled = true;
+        setText("last-updated", "Refreshing dashboard…");
+        try {
+            const [generatedAt] = await Promise.all([loadSummary(), loadRequests(), loadEvents()]);
+            setText("last-updated", `Last updated ${formatDate(generatedAt)}`);
+        } catch (error) {
+            setText("last-updated", error.message);
+        } finally {
+            state.refreshing = false;
+            byId("refresh").disabled = false;
+        }
+    }
+
+    byId("refresh").addEventListener("click", () => refreshAll(true));
+    byId("requests-prev").addEventListener("click", async () => { state.requestsPage--; await loadRequests().catch(() => {}); });
+    byId("requests-next").addEventListener("click", async () => { state.requestsPage++; await loadRequests().catch(() => {}); });
+    byId("events-prev").addEventListener("click", async () => { state.eventsPage--; await loadEvents().catch(() => {}); });
+    byId("events-next").addEventListener("click", async () => { state.eventsPage++; await loadEvents().catch(() => {}); });
+
+    refreshAll();
+</script>
+</body>
+</html>

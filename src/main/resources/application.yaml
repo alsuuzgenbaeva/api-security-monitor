@@ -19,6 +19,17 @@ monitoring:
     excluded-paths:
       - /error
       - /favicon.ico
+      - /login
+      - /logout
+      - /monitoring
+      - /monitoring/
+      - /monitoring/index.html
+      - /api/monitoring/summary
+      - /api/monitoring/requests
+      - /api/monitoring/events
+  security:
+    admin-username: ${MONITOR_ADMIN_USERNAME:admin}
+    admin-password: ${MONITOR_ADMIN_PASSWORD}
   anomaly-detection:
     excessive-requests:
       enabled: true
