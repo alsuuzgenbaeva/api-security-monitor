@@ -1,8 +1,8 @@
 API Security Monitor
 
-This is my graduation project for the Computer Engineering Department at Erciyes University.
+A REST API monitoring application built with Java and Spring Boot.
 
-The aim of the project is to develop a system that monitors REST API traffic and detects unusual request activity. The system currently uses rule-based detection, with machine learning planned for the next stage of development.
+The application logs HTTP requests, detects unusual request activity and displays the results in a web dashboard.
 
 Technologies
 
@@ -15,101 +15,48 @@ Technologies
 
 Features
 
-The current version includes:
+* HTTP request logging
+* Request history stored in PostgreSQL
+* Rule-based anomaly detection
+* Security events with risk levels
+* Admin authentication
+* Web dashboard with request statistics and security events
 
-* Automatic logging of HTTP requests
-* Storage of request information in PostgreSQL
-* Detection of excessive requests from the same IP address
-* Security event generation
-* Administrator login
-* A web dashboard for viewing request logs and security events
+Currently, the detection mechanism checks for excessive requests from the same IP address (5 requests within 10 seconds). Detected activity is recorded as a security event without blocking the request.
 
-For each request, the system records information such as the IP address, HTTP method, endpoint, response status and request duration.
+Setup
 
-The anomaly detection module currently checks whether an IP address sends 5 requests within 10 seconds. When this happens, a security event with a MEDIUM risk level is created.
+Requires Java 21, PostgreSQL 16 and a database named api_security_db.
 
-The system only records suspicious activity. It does not block requests.
-
-How to Run
-
-Requirements
-
-* Java 21
-* PostgreSQL 16
-* A database named api_security_db
-
-1. Configure the database
-
-Create a PostgreSQL database named api_security_db.
-
-The application uses the postgres database user.
-
-2. Set environment variables
-
-Before running the application, set the database and dashboard passwords.
-
-In PowerShell:
+Set the following environment variables:
 
 $env:DB_PASSWORD = "your_database_password"
 $env:MONITOR_ADMIN_PASSWORD = "your_admin_password"
 
-The default dashboard username is admin.
-
-3. Start the application
+Run the application:
 
 .\mvnw.cmd spring-boot:run
 
-The application runs locally at:
+Dashboard: http://127.0.0.1:8080/monitoring
 
-http://127.0.0.1:8080
-
-4. Open the dashboard
-
-Go to:
-
-http://127.0.0.1:8080/monitoring
-
-Log in using the administrator credentials.
-
-The dashboard displays request statistics, recent API requests and detected security events.
+Default username: admin
 
 API Endpoints
 
 Method	Endpoint	Description
 GET	/api/test	Test endpoint
-GET	/api/monitoring/summary	Request and event statistics
-GET	/api/monitoring/requests	Recorded API requests
-GET	/api/monitoring/events	Detected security events
+GET	/api/monitoring/summary	Monitoring statistics
+GET	/api/monitoring/requests	Request logs
+GET	/api/monitoring/events	Security events
 
-The monitoring endpoints require administrator login.
+Monitoring endpoints require authentication.
 
-Testing
-
-To run the automated tests:
+Tests
 
 .\mvnw.cmd clean test
 
-You can also test the anomaly detection manually.
+Development
 
-First, start the application and open the dashboard. Then run this command in PowerShell:
+Request logging, rule-based detection and the monitoring dashboard are implemented.
 
-1..5 | ForEach-Object {
-    Invoke-RestMethod http://127.0.0.1:8080/api/test
-}
-
-Refresh the dashboard to see the recorded requests and the generated security event.
-
-If the test was recently repeated, wait at least 30 seconds before trying again.
-
-Current Progress
-
-The first working prototype is complete. It includes HTTP request logging, basic rule-based anomaly detection and a monitoring dashboard.
-
-The next part of the project will focus on:
-
-* Machine learning-based anomaly detection
-* Additional security rules
-* Integration of the detection methods
-* Further testing and improvements
-
-The project is still under development and is currently intended for local testing.
+Machine learning-based anomaly detection and additional security checks are planned for future development.
