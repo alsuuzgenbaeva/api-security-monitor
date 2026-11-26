@@ -36,6 +36,17 @@ monitoring:
       threshold: 5
       window: 10s
       suppression-period: 30s
+    query-payload:
+      enabled: true
+      max-query-length: 8192
+      max-parameter-length: 2048
+      max-parameters: 50
+      max-path-length: 2048
+      max-body-cache-bytes: 16384
+      max-json-depth: 64
+      max-json-values: 50
+      max-json-string-length: 2048
+      suppression-period: 30s
 
 server:
   address: 127.0.0.1

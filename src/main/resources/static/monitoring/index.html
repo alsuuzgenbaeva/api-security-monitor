@@ -251,6 +251,14 @@
         return "status-ok";
     }
 
+    function evidenceText(item) {
+        if (item.eventType === "EXCESSIVE_REQUESTS") {
+            return `${item.observedRequestCount} / ${item.configuredThreshold} in ${item.windowSeconds}s`;
+        }
+        const label = item.observedRequestCount === 1 ? "signature indicator" : "signature indicators";
+        return `${item.observedRequestCount} ${label}`;
+    }
+
     async function loadSummary() {
         const summary = await getJson("/api/monitoring/summary");
         setText("total-requests", numberFormat.format(summary.totalRequests));
@@ -299,7 +307,7 @@
                 badgeCell(row, item.riskLevel, `risk-${item.riskLevel.toLowerCase()}`);
                 cell(row, item.clientIp, "mono");
                 cell(row, item.detectionReason, "reason");
-                cell(row, `${item.observedRequestCount} / ${item.configuredThreshold} in ${item.windowSeconds}s`);
+                cell(row, evidenceText(item));
                 rows.appendChild(row);
             });
             updatePagination("events", data);

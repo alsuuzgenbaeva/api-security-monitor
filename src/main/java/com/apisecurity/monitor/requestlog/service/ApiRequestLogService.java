@@ -1,5 +1,6 @@
 package com.apisecurity.monitor.requestlog.service;
 
+import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding;
 import com.apisecurity.monitor.requestlog.event.RequestLoggedEvent;
 import com.apisecurity.monitor.requestlog.model.ApiRequestLog;
 import com.apisecurity.monitor.requestlog.model.RequestLogData;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -28,7 +30,14 @@ public class ApiRequestLogService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void save(RequestLogData data) {
+        save(data, List.of());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void save(RequestLogData data, List<PayloadDetectionFinding> payloadFindings) {
         Objects.requireNonNull(data, "Request log data must not be null");
+        List<PayloadDetectionFinding> safeFindings = List.copyOf(
+                Objects.requireNonNull(payloadFindings, "Payload findings must not be null"));
 
         RequestLogData safeData = new RequestLogData(
                 Objects.requireNonNull(data.requestedAt(), "Request timestamp must not be null"),
@@ -43,7 +52,8 @@ public class ApiRequestLogService {
         eventPublisher.publishEvent(new RequestLoggedEvent(
                 savedLog.getId(),
                 savedLog.getRequestedAt(),
-                savedLog.getClientIp()
+                savedLog.getClientIp(),
+                safeFindings
         ));
     }
 
