@@ -1,5 +1,6 @@
 package com.apisecurity.monitor.monitoring.web;
 
+import com.apisecurity.monitor.anomaly.payload.service.PayloadSignatureDetector;
 import com.apisecurity.monitor.monitoring.dto.MonitoringSummaryResponse;
 import com.apisecurity.monitor.monitoring.dto.PagedResponse;
 import com.apisecurity.monitor.monitoring.service.MonitoringQueryService;
@@ -56,6 +57,9 @@ class MonitoringControllerSecurityTest {
 
     @MockitoBean
     private RequestLoggingProperties requestLoggingProperties;
+
+    @MockitoBean
+    private PayloadSignatureDetector payloadSignatureDetector;
 
     @Test
     void redirectsUnauthenticatedMonitoringApiAndPageToLogin() throws Exception {
@@ -121,7 +125,9 @@ class MonitoringControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("API Security Monitoring Dashboard")))
                 .andExpect(content().string(containsString("Loading requests")))
-                .andExpect(content().string(containsString("Detected security events")));
+                .andExpect(content().string(containsString("Detected security events")))
+                .andExpect(content().string(containsString("signature indicator")))
+                .andExpect(content().string(containsString("textContent")));
     }
 
     @Test

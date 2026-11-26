@@ -1,5 +1,7 @@
 package com.apisecurity.monitor.requestlog.web;
 
+import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding;
+import com.apisecurity.monitor.anomaly.payload.service.PayloadSignatureDetector;
 import com.apisecurity.monitor.requestlog.config.RequestLoggingProperties;
 import com.apisecurity.monitor.requestlog.model.RequestLogData;
 import com.apisecurity.monitor.requestlog.service.ApiRequestLogService;
@@ -14,6 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -23,10 +26,16 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
 
     private final ApiRequestLogService requestLogService;
     private final RequestLoggingProperties properties;
+    private final PayloadSignatureDetector payloadSignatureDetector;
 
-    public ApiRequestLoggingFilter(ApiRequestLogService requestLogService, RequestLoggingProperties properties) {
+    public ApiRequestLoggingFilter(
+            ApiRequestLogService requestLogService,
+            RequestLoggingProperties properties,
+            PayloadSignatureDetector payloadSignatureDetector
+    ) {
         this.requestLogService = requestLogService;
         this.properties = properties;
+        this.payloadSignatureDetector = payloadSignatureDetector;
     }
 
     @Override
@@ -57,6 +66,7 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } finally {
             long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+            List<PayloadDetectionFinding> findings = detectQueryPayload(request);
             RequestLogData data = new RequestLogData(
                     requestedAt,
                     request.getRemoteAddr(),
@@ -67,10 +77,19 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
             );
 
             try {
-                requestLogService.save(data);
+                requestLogService.save(data, findings);
             } catch (RuntimeException exception) {
                 logger.error("Unable to persist API request metadata; the original response is unchanged");
             }
+        }
+    }
+
+    private List<PayloadDetectionFinding> detectQueryPayload(HttpServletRequest request) {
+        try {
+            return payloadSignatureDetector.detect(request.getQueryString());
+        } catch (RuntimeException detectionFailure) {
+            logger.error("Query-payload inspection failed; request logging will continue without findings");
+            return List.of();
         }
     }
 }

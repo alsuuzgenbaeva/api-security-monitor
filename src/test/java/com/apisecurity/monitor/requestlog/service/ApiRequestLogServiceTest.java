@@ -1,9 +1,13 @@
 package com.apisecurity.monitor.requestlog.service;
 
+import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding;
+import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding.InputLocation;
+import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding.SignatureIdentifier;
 import com.apisecurity.monitor.requestlog.event.RequestLoggedEvent;
 import com.apisecurity.monitor.requestlog.model.ApiRequestLog;
 import com.apisecurity.monitor.requestlog.model.RequestLogData;
 import com.apisecurity.monitor.requestlog.repository.ApiRequestLogRepository;
+import com.apisecurity.monitor.securityevent.model.SecurityEventType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -15,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,6 +66,32 @@ class ApiRequestLogServiceTest {
         assertThat(eventCaptor.getValue().requestLogId()).isEqualTo(42L);
         assertThat(eventCaptor.getValue().requestedAt()).isEqualTo(timestamp);
         assertThat(eventCaptor.getValue().clientIp()).isEqualTo("127.0.0.1");
+        assertThat(eventCaptor.getValue().payloadFindings()).isEmpty();
+    }
+
+    @Test
+    void publishesOnlyPrivacySafeFindingsAfterLogPersistence() {
+        ApiRequestLogService service = new ApiRequestLogService(repository, eventPublisher);
+        Instant timestamp = Instant.parse("2026-11-02T10:15:30Z");
+        PayloadDetectionFinding finding = new PayloadDetectionFinding(
+                SecurityEventType.SQL_INJECTION_ATTEMPT,
+                InputLocation.QUERY_PARAMETER,
+                SignatureIdentifier.SQLI_UNION_SELECT);
+        when(repository.saveAndFlush(any(ApiRequestLog.class))).thenAnswer(invocation -> {
+            ApiRequestLog log = invocation.getArgument(0);
+            ReflectionTestUtils.setField(log, "id", 43L);
+            return log;
+        });
+
+        service.save(
+                new RequestLogData(timestamp, "127.0.0.1", "GET", "/api/test", 200, 1),
+                List.of(finding));
+
+        ArgumentCaptor<RequestLoggedEvent> eventCaptor = ArgumentCaptor.forClass(RequestLoggedEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().payloadFindings()).containsExactly(finding);
+        assertThat(eventCaptor.getValue().payloadFindings().toString())
+                .doesNotContain("UNION SELECT", "password", "token");
     }
 
     @Test
@@ -84,5 +115,11 @@ class ApiRequestLogServiceTest {
 
         assertThat(transactional).isNotNull();
         assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+
+        Transactional findingsTransactional = ApiRequestLogService.class
+                .getMethod("save", RequestLogData.class, List.class)
+                .getAnnotation(Transactional.class);
+        assertThat(findingsTransactional).isNotNull();
+        assertThat(findingsTransactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
     }
 }

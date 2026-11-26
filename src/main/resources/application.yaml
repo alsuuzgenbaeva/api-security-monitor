@@ -36,6 +36,12 @@ monitoring:
       threshold: 5
       window: 10s
       suppression-period: 30s
+    query-payload:
+      enabled: true
+      max-query-length: 8192
+      max-parameter-length: 2048
+      max-parameters: 50
+      suppression-period: 30s
 
 server:
   address: 127.0.0.1

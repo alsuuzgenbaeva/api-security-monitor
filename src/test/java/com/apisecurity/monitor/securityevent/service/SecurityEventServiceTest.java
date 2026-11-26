@@ -64,6 +64,19 @@ class SecurityEventServiceTest {
     }
 
     @Test
+    void differentEventTypesUseIndependentSuppressionKeys() {
+        SecurityEventData xss = data(SecurityEventType.XSS_ATTEMPT);
+        SecurityEventData sqlInjection = data(SecurityEventType.SQL_INJECTION_ATTEMPT);
+
+        assertThat(service.createIfNotSuppressed(xss, Duration.ofSeconds(30))).isTrue();
+        assertThat(service.createIfNotSuppressed(sqlInjection, Duration.ofSeconds(30))).isTrue();
+
+        long expectedBucket = Math.floorDiv(OCCURRED_AT.getEpochSecond(), 30);
+        verify(writer).insert(xss, "XSS_ATTEMPT|127.0.0.1|" + expectedBucket);
+        verify(writer).insert(sqlInjection, "SQL_INJECTION_ATTEMPT|127.0.0.1|" + expectedBucket);
+    }
+
+    @Test
     void concurrentDuplicateKeyIsTreatedAsSuppression() {
         long expectedBucket = Math.floorDiv(OCCURRED_AT.getEpochSecond(), 30);
         String key = "EXCESSIVE_REQUESTS|127.0.0.1|" + expectedBucket;
@@ -96,8 +109,12 @@ class SecurityEventServiceTest {
     }
 
     private SecurityEventData data() {
+        return data(SecurityEventType.EXCESSIVE_REQUESTS);
+    }
+
+    private SecurityEventData data(SecurityEventType eventType) {
         return new SecurityEventData(
-                SecurityEventType.EXCESSIVE_REQUESTS,
+                eventType,
                 RiskLevel.MEDIUM,
                 OCCURRED_AT,
                 "127.0.0.1",
