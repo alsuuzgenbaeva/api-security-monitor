@@ -88,6 +88,23 @@ class QueryPayloadAttackDetectorTest {
     }
 
     @Test
+    void groupsMixedLocationsAndPersistsOnlyFixedEvidence() {
+        detector.detect(event(List.of(
+                finding(SignatureIdentifier.XSS_SCRIPT_TAG, InputLocation.QUERY_PARAMETER),
+                finding(SignatureIdentifier.XSS_EVENT_HANDLER, InputLocation.REQUEST_PATH),
+                finding(SignatureIdentifier.XSS_JAVASCRIPT_URI, InputLocation.REQUEST_BODY))));
+
+        ArgumentCaptor<SecurityEventData> captor = ArgumentCaptor.forClass(SecurityEventData.class);
+        verify(securityEventService).createIfNotSuppressed(captor.capture(), eq(Duration.ofSeconds(30)));
+        SecurityEventData data = captor.getValue();
+        assertThat(data.observedRequestCount()).isEqualTo(3);
+        assertThat(data.detectionReason())
+                .contains("QUERY_PARAMETER", "REQUEST_PATH", "REQUEST_BODY",
+                        "XSS_SCRIPT_TAG", "XSS_EVENT_HANDLER", "XSS_JAVASCRIPT_URI")
+                .doesNotContain("<script>", "javascript:", "password", "token");
+    }
+
+    @Test
     void disabledDetectionDoesNotCreateEvents() {
         properties.setEnabled(false);
         detector.detect(event(List.of(finding(SignatureIdentifier.XSS_SCRIPT_TAG))));
@@ -152,7 +169,11 @@ class QueryPayloadAttackDetectorTest {
     }
 
     private PayloadDetectionFinding finding(SignatureIdentifier identifier) {
+        return finding(identifier, InputLocation.QUERY_PARAMETER);
+    }
+
+    private PayloadDetectionFinding finding(SignatureIdentifier identifier, InputLocation inputLocation) {
         return new PayloadDetectionFinding(
-                identifier.eventType(), InputLocation.QUERY_PARAMETER, identifier);
+                identifier.eventType(), inputLocation, identifier);
     }
 }

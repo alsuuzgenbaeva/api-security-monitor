@@ -2,6 +2,7 @@ package com.apisecurity.monitor.anomaly.payload.service;
 
 import com.apisecurity.monitor.anomaly.payload.config.QueryPayloadDetectionProperties;
 import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding;
+import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding.InputLocation;
 import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding.SignatureIdentifier;
 import com.apisecurity.monitor.securityevent.model.SecurityEventType;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,6 +12,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class PayloadSignatureDetectorTest {
 
@@ -137,5 +139,44 @@ class PayloadSignatureDetectorTest {
 
         assertThatThrownBy(() -> findings.clear())
                 .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void detectsRawAndOnceDecodedRequestPathPayloads() {
+        assertThat(detector.detectPath("/search/<script>alert(1)</script>"))
+                .extracting(PayloadDetectionFinding::inputLocation, PayloadDetectionFinding::signatureIdentifier)
+                .containsExactly(tuple(InputLocation.REQUEST_PATH, SignatureIdentifier.XSS_SCRIPT_TAG));
+
+        assertThat(detector.detectPath("/reports/1%20UNION%20SELECT%20password"))
+                .extracting(PayloadDetectionFinding::inputLocation, PayloadDetectionFinding::signatureIdentifier)
+                .containsExactly(tuple(InputLocation.REQUEST_PATH, SignatureIdentifier.SQLI_UNION_SELECT));
+    }
+
+    @Test
+    void preservesLiteralPlusAndDecodesRequestPathOnlyOnce() {
+        assertThat(detector.detectPath("/reports/1+UNION+SELECT+password")).isEmpty();
+        assertThat(detector.detectPath("/search/%253Cscript%253E")).isEmpty();
+    }
+
+    @Test
+    void malformedPathEncodingDoesNotFailAndValidSequencesAreStillInspected() {
+        assertThat(detector.detectPath("/search/%ZZ%3Cscript%3E"))
+                .extracting(PayloadDetectionFinding::signatureIdentifier)
+                .containsExactly(SignatureIdentifier.XSS_SCRIPT_TAG);
+    }
+
+    @Test
+    void enforcesMaximumRequestPathLength() {
+        properties.setMaxPathLength(12);
+
+        assertThat(detector.detectPath("/safe/value/<script>")).isEmpty();
+    }
+
+    @Test
+    void createsRequestBodyFindingsWithoutUrlDecoding() {
+        assertThat(detector.detectBodyValue("<script>alert(1)</script>"))
+                .extracting(PayloadDetectionFinding::inputLocation, PayloadDetectionFinding::signatureIdentifier)
+                .containsExactly(tuple(InputLocation.REQUEST_BODY, SignatureIdentifier.XSS_SCRIPT_TAG));
+        assertThat(detector.detectBodyValue("%3Cscript%3E")).isEmpty();
     }
 }

@@ -20,7 +20,9 @@ public record PayloadDetectionFinding(
     }
 
     public enum InputLocation {
-        QUERY_PARAMETER
+        QUERY_PARAMETER,
+        REQUEST_PATH,
+        REQUEST_BODY
     }
 
     public enum SignatureIdentifier {

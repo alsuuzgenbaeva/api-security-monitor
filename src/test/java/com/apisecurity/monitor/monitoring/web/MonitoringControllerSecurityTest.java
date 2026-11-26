@@ -1,5 +1,7 @@
 package com.apisecurity.monitor.monitoring.web;
 
+import com.apisecurity.monitor.anomaly.payload.config.QueryPayloadDetectionProperties;
+import com.apisecurity.monitor.anomaly.payload.service.JsonRequestBodyPayloadInspector;
 import com.apisecurity.monitor.anomaly.payload.service.PayloadSignatureDetector;
 import com.apisecurity.monitor.monitoring.dto.MonitoringSummaryResponse;
 import com.apisecurity.monitor.monitoring.dto.PagedResponse;
@@ -60,6 +62,12 @@ class MonitoringControllerSecurityTest {
 
     @MockitoBean
     private PayloadSignatureDetector payloadSignatureDetector;
+
+    @MockitoBean
+    private QueryPayloadDetectionProperties queryPayloadDetectionProperties;
+
+    @MockitoBean
+    private JsonRequestBodyPayloadInspector jsonRequestBodyPayloadInspector;
 
     @Test
     void redirectsUnauthenticatedMonitoringApiAndPageToLogin() throws Exception {

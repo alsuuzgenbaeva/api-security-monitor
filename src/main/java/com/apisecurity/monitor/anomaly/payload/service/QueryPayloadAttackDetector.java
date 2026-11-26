@@ -39,7 +39,7 @@ public class QueryPayloadAttackDetector {
         try {
             detect(event);
         } catch (RuntimeException detectionFailure) {
-            logger.error("Query-payload event creation failed; the original response is unchanged");
+            logger.error("Payload event creation failed; the original response is unchanged");
         }
     }
 
@@ -59,7 +59,7 @@ public class QueryPayloadAttackDetector {
                 createEvent(event, eventType, findings);
             } catch (RuntimeException eventCreationFailure) {
                 logger.error(
-                        "Query-payload event creation failed for {}; other event types will continue",
+                        "Payload event creation failed for {}; other event types will continue",
                         eventType);
             }
         });
@@ -75,8 +75,13 @@ public class QueryPayloadAttackDetector {
                 .distinct()
                 .sorted()
                 .collect(Collectors.joining(", "));
-        String reason = "Potential %s indicator detected; location: QUERY_PARAMETER; signatures: %s."
-                .formatted(displayName(eventType), signatureIdentifiers);
+        String inputLocations = findings.stream()
+                .map(finding -> finding.inputLocation().name())
+                .distinct()
+                .sorted()
+                .collect(Collectors.joining(", "));
+        String reason = "Potential %s indicator detected; locations: %s; signatures: %s."
+                .formatted(displayName(eventType), inputLocations, signatureIdentifiers);
 
         SecurityEventData eventData = new SecurityEventData(
                 eventType,
@@ -96,7 +101,7 @@ public class QueryPayloadAttackDetector {
         return switch (eventType) {
             case XSS_ATTEMPT -> "XSS attempt";
             case SQL_INJECTION_ATTEMPT -> "SQL injection attempt";
-            case EXCESSIVE_REQUESTS -> throw new IllegalArgumentException("Unsupported query-payload event type");
+            case EXCESSIVE_REQUESTS -> throw new IllegalArgumentException("Unsupported payload event type");
         };
     }
 }

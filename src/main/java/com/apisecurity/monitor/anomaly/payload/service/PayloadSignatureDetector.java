@@ -5,6 +5,7 @@ import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding;
 import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding.InputLocation;
 import com.apisecurity.monitor.anomaly.payload.model.PayloadDetectionFinding.SignatureIdentifier;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriUtils;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -66,6 +67,35 @@ public class PayloadSignatureDetector {
         return List.copyOf(findings);
     }
 
+    public List<PayloadDetectionFinding> detectPath(String rawPath) {
+        if (!properties.isEnabled() || rawPath == null || rawPath.isEmpty()) {
+            return List.of();
+        }
+
+        String boundedPath = truncate(rawPath, properties.getMaxPathLength());
+        Set<PayloadDetectionFinding> findings = new LinkedHashSet<>();
+        inspectCanonicalValue(boundedPath, InputLocation.REQUEST_PATH, findings);
+
+        String decodedPath = decodePathOnce(boundedPath);
+        if (!decodedPath.equals(boundedPath)) {
+            inspectCanonicalValue(decodedPath, InputLocation.REQUEST_PATH, findings);
+        }
+        return List.copyOf(findings);
+    }
+
+    public List<PayloadDetectionFinding> detectBodyValue(String value) {
+        if (!properties.isEnabled() || value == null || value.isEmpty()) {
+            return List.of();
+        }
+
+        Set<PayloadDetectionFinding> findings = new LinkedHashSet<>();
+        inspectCanonicalValue(
+                truncate(value, properties.getMaxJsonStringLength()),
+                InputLocation.REQUEST_BODY,
+                findings);
+        return List.copyOf(findings);
+    }
+
     private void inspectParameter(String rawParameter, Set<PayloadDetectionFinding> findings) {
         int separator = rawParameter.indexOf('=');
         String rawName = separator < 0 ? rawParameter : rawParameter.substring(0, separator);
@@ -76,20 +106,24 @@ public class PayloadSignatureDetector {
 
     private void inspectValue(String rawValue, Set<PayloadDetectionFinding> findings) {
         String boundedValue = truncate(rawValue, properties.getMaxParameterLength());
-        inspectCanonicalValue(boundedValue, findings);
+        inspectCanonicalValue(boundedValue, InputLocation.QUERY_PARAMETER, findings);
 
         String decodedValue = decodeOnce(boundedValue);
         if (!decodedValue.equals(boundedValue)) {
-            inspectCanonicalValue(decodedValue, findings);
+            inspectCanonicalValue(decodedValue, InputLocation.QUERY_PARAMETER, findings);
         }
     }
 
-    private void inspectCanonicalValue(String value, Set<PayloadDetectionFinding> findings) {
+    private void inspectCanonicalValue(
+            String value,
+            InputLocation inputLocation,
+            Set<PayloadDetectionFinding> findings
+    ) {
         for (SignaturePattern signaturePattern : SIGNATURE_PATTERNS) {
             if (signaturePattern.pattern().matcher(value).find()) {
                 SignatureIdentifier identifier = signaturePattern.identifier();
                 findings.add(new PayloadDetectionFinding(
-                        identifier.eventType(), InputLocation.QUERY_PARAMETER, identifier));
+                        identifier.eventType(), inputLocation, identifier));
             }
         }
     }
@@ -102,11 +136,23 @@ public class PayloadSignatureDetector {
         }
     }
 
+    private String decodePathOnce(String value) {
+        try {
+            return UriUtils.decode(value, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException malformedEncoding) {
+            return decodeValidAsciiSequences(value, false);
+        }
+    }
+
     private String decodeValidAsciiSequences(String value) {
+        return decodeValidAsciiSequences(value, true);
+    }
+
+    private String decodeValidAsciiSequences(String value, boolean plusAsSpace) {
         StringBuilder decoded = new StringBuilder(value.length());
         for (int index = 0; index < value.length(); index++) {
             char current = value.charAt(index);
-            if (current == '+') {
+            if (current == '+' && plusAsSpace) {
                 decoded.append(' ');
                 continue;
             }
