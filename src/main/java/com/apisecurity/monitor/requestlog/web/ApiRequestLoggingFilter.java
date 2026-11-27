@@ -19,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerMapping;
+import org.springframework.web.servlet.resource.ResourceHttpRequestHandler;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import java.io.IOException;
@@ -90,7 +91,7 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
                     requestedAt,
                     request.getRemoteAddr(),
                     request.getMethod(),
-                    requestPathForStorage(request, findings),
+                    requestPathForStorage(request, response.getStatus(), findings),
                     response.getStatus(),
                     durationMs
             );
@@ -186,15 +187,23 @@ public class ApiRequestLoggingFilter extends OncePerRequestFilter {
 
     private String requestPathForStorage(
             HttpServletRequest request,
+            int responseStatus,
             List<PayloadDetectionFinding> findings
     ) {
         Object routeTemplate = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
-        if (routeTemplate != null && !routeTemplate.toString().isBlank()) {
+        if (routeTemplate != null && !routeTemplate.toString().isBlank()
+                && !isMissingStaticResource(request, responseStatus)) {
             return routeTemplate.toString();
         }
         boolean suspiciousPath = findings.stream()
                 .anyMatch(finding -> finding.inputLocation() == InputLocation.REQUEST_PATH);
         return suspiciousPath ? REDACTED_SUSPICIOUS_PATH : request.getRequestURI();
+    }
+
+    private boolean isMissingStaticResource(HttpServletRequest request, int responseStatus) {
+        Object handler = request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE);
+        return responseStatus == HttpServletResponse.SC_NOT_FOUND
+                && handler instanceof ResourceHttpRequestHandler;
     }
 
     private static final class OverflowTrackingContentCachingRequestWrapper

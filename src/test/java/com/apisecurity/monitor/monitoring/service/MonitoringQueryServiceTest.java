@@ -132,7 +132,11 @@ class MonitoringQueryServiceTest {
                 "Observed five requests in ten seconds.",
                 5,
                 5,
-                10
+                10,
+                null,
+                null,
+                null,
+                null
         ));
     }
 
@@ -164,6 +168,50 @@ class MonitoringQueryServiceTest {
                 "Potential brute-force indicator.",
                 5,
                 5,
+                60,
+                null,
+                null,
+                null,
+                null
+        ));
+    }
+
+    @Test
+    void mapsPhaseTenStructuredEvidence() {
+        SecurityEvent event = new SecurityEvent(new SecurityEventData(
+                SecurityEventType.ABNORMAL_ERROR_RATE,
+                RiskLevel.MEDIUM,
+                NOW,
+                "127.0.0.1",
+                "Potential abnormal client-error-rate indicator.",
+                55L,
+                10,
+                10,
+                60,
+                null,
+                null,
+                6L,
+                60
+        ), "error-rate-deduplication-key");
+        ReflectionTestUtils.setField(event, "id", 11L);
+        when(securityEventRepository.findAll(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(event)));
+
+        PagedResponse<SecurityEventResponse> response = service.getEvents(0, 20);
+
+        assertThat(response.content()).containsExactly(new SecurityEventResponse(
+                11L,
+                SecurityEventType.ABNORMAL_ERROR_RATE,
+                RiskLevel.MEDIUM,
+                NOW,
+                "127.0.0.1",
+                "Potential abnormal client-error-rate indicator.",
+                10,
+                10,
+                60,
+                null,
+                null,
+                6L,
                 60
         ));
     }

@@ -53,7 +53,41 @@ class SecurityEventWriterTest {
         assertThat(saved.getObservedRequestCount()).isEqualTo(5L);
         assertThat(saved.getConfiguredThreshold()).isEqualTo(5);
         assertThat(saved.getWindowSeconds()).isEqualTo(10L);
+        assertThat(saved.getObservedDistinctPathCount()).isNull();
+        assertThat(saved.getConfiguredDistinctPathThreshold()).isNull();
+        assertThat(saved.getObservedClientErrorCount()).isNull();
+        assertThat(saved.getConfiguredClientErrorRatePercent()).isNull();
         assertThat(saved.getDeduplicationKey()).isEqualTo("dedup-key");
+    }
+
+    @Test
+    void mapsPhaseTenStructuredEvidenceWithoutRawPaths() {
+        SecurityEventWriter writer = new SecurityEventWriter(repository);
+        SecurityEventData data = new SecurityEventData(
+                SecurityEventType.ENDPOINT_SCANNING,
+                RiskLevel.MEDIUM,
+                Instant.parse("2026-11-27T10:00:00Z"),
+                "127.0.0.1",
+                "Potential endpoint-scanning indicator with aggregate evidence only.",
+                100L,
+                8,
+                8,
+                60,
+                5L,
+                5,
+                null,
+                null
+        );
+
+        writer.insert(data, "endpoint-dedup-key");
+
+        ArgumentCaptor<SecurityEvent> captor = ArgumentCaptor.forClass(SecurityEvent.class);
+        verify(repository).saveAndFlush(captor.capture());
+        SecurityEvent saved = captor.getValue();
+        assertThat(saved.getObservedDistinctPathCount()).isEqualTo(5L);
+        assertThat(saved.getConfiguredDistinctPathThreshold()).isEqualTo(5);
+        assertThat(saved.getObservedClientErrorCount()).isNull();
+        assertThat(saved.getDetectionReason()).doesNotContain("/admin", "/missing");
     }
 
     @Test

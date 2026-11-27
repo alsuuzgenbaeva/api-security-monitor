@@ -43,6 +43,18 @@ monitoring:
       suppression-period: 60s
       max-tracked-clients: 1000
       max-attempts-per-client: 100
+    endpoint-scanning:
+      enabled: true
+      distinct-path-threshold: 5
+      minimum-unsuccessful-requests: 8
+      window: 60s
+      suppression-period: 60s
+    abnormal-error-rate:
+      enabled: true
+      minimum-request-count: 10
+      client-error-rate-threshold-percent: 60
+      window: 60s
+      suppression-period: 60s
     query-payload:
       enabled: true
       max-query-length: 8192

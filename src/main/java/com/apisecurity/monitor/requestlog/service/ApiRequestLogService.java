@@ -53,6 +53,7 @@ public class ApiRequestLogService {
                 savedLog.getId(),
                 savedLog.getRequestedAt(),
                 savedLog.getClientIp(),
+                savedLog.getResponseStatus(),
                 safeFindings
         ));
     }

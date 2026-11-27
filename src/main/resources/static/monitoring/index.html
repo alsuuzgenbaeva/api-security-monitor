@@ -255,6 +255,19 @@
         if (item.eventType === "EXCESSIVE_REQUESTS" || item.eventType === "BRUTE_FORCE_ATTEMPT") {
             return `${item.observedRequestCount} / ${item.configuredThreshold} in ${item.windowSeconds}s`;
         }
+        if (item.eventType === "ENDPOINT_SCANNING") {
+            return `${item.observedDistinctPathCount} distinct paths / ${item.configuredDistinctPathThreshold}; `
+                + `${item.observedRequestCount} unsuccessful requests / ${item.configuredThreshold} `
+                + `in ${item.windowSeconds}s`;
+        }
+        if (item.eventType === "ABNORMAL_ERROR_RATE") {
+            const errorRate = item.observedRequestCount === 0
+                ? 0
+                : item.observedClientErrorCount * 100 / item.observedRequestCount;
+            return `${item.observedClientErrorCount} / ${item.observedRequestCount} eligible client errors `
+                + `(${errorRate.toFixed(1)}%); threshold ${item.configuredClientErrorRatePercent}% `
+                + `in ${item.windowSeconds}s`;
+        }
         const label = item.observedRequestCount === 1 ? "signature indicator" : "signature indicators";
         return `${item.observedRequestCount} ${label}`;
     }

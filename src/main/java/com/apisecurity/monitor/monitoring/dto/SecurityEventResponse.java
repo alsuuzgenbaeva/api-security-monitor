@@ -14,6 +14,10 @@ public record SecurityEventResponse(
         String detectionReason,
         long observedRequestCount,
         int configuredThreshold,
-        long windowSeconds
+        long windowSeconds,
+        Long observedDistinctPathCount,
+        Integer configuredDistinctPathThreshold,
+        Long observedClientErrorCount,
+        Integer configuredClientErrorRatePercent
 ) {
 }

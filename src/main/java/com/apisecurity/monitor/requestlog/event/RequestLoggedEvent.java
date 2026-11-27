@@ -9,6 +9,7 @@ public record RequestLoggedEvent(
         Long requestLogId,
         Instant requestedAt,
         String clientIp,
+        int responseStatus,
         List<PayloadDetectionFinding> payloadFindings
 ) {
 
@@ -17,6 +18,15 @@ public record RequestLoggedEvent(
     }
 
     public RequestLoggedEvent(Long requestLogId, Instant requestedAt, String clientIp) {
-        this(requestLogId, requestedAt, clientIp, List.of());
+        this(requestLogId, requestedAt, clientIp, 0, List.of());
+    }
+
+    public RequestLoggedEvent(
+            Long requestLogId,
+            Instant requestedAt,
+            String clientIp,
+            List<PayloadDetectionFinding> payloadFindings
+    ) {
+        this(requestLogId, requestedAt, clientIp, 0, payloadFindings);
     }
 }
