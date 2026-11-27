@@ -252,7 +252,7 @@
     }
 
     function evidenceText(item) {
-        if (item.eventType === "EXCESSIVE_REQUESTS") {
+        if (item.eventType === "EXCESSIVE_REQUESTS" || item.eventType === "BRUTE_FORCE_ATTEMPT") {
             return `${item.observedRequestCount} / ${item.configuredThreshold} in ${item.windowSeconds}s`;
         }
         const label = item.observedRequestCount === 1 ? "signature indicator" : "signature indicators";

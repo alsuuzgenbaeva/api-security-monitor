@@ -49,7 +49,7 @@ public class SecurityEvent {
     @Column(name = "detection_reason", nullable = false, length = 1000)
     private String detectionReason;
 
-    @Column(name = "source_request_log_id", nullable = false)
+    @Column(name = "source_request_log_id")
     private Long sourceRequestLogId;
 
     @Column(name = "observed_request_count", nullable = false)

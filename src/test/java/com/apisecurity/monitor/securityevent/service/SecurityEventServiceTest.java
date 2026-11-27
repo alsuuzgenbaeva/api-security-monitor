@@ -67,13 +67,16 @@ class SecurityEventServiceTest {
     void differentEventTypesUseIndependentSuppressionKeys() {
         SecurityEventData xss = data(SecurityEventType.XSS_ATTEMPT);
         SecurityEventData sqlInjection = data(SecurityEventType.SQL_INJECTION_ATTEMPT);
+        SecurityEventData bruteForce = data(SecurityEventType.BRUTE_FORCE_ATTEMPT);
 
         assertThat(service.createIfNotSuppressed(xss, Duration.ofSeconds(30))).isTrue();
         assertThat(service.createIfNotSuppressed(sqlInjection, Duration.ofSeconds(30))).isTrue();
+        assertThat(service.createIfNotSuppressed(bruteForce, Duration.ofSeconds(30))).isTrue();
 
         long expectedBucket = Math.floorDiv(OCCURRED_AT.getEpochSecond(), 30);
         verify(writer).insert(xss, "XSS_ATTEMPT|127.0.0.1|" + expectedBucket);
         verify(writer).insert(sqlInjection, "SQL_INJECTION_ATTEMPT|127.0.0.1|" + expectedBucket);
+        verify(writer).insert(bruteForce, "BRUTE_FORCE_ATTEMPT|127.0.0.1|" + expectedBucket);
     }
 
     @Test

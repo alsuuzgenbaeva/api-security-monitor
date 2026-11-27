@@ -1,14 +1,21 @@
 package com.apisecurity.monitor.monitoring.web;
 
+import com.apisecurity.monitor.anomaly.bruteforce.config.BruteForceDetectionProperties;
+import com.apisecurity.monitor.anomaly.bruteforce.service.BruteForceAttemptTracker;
+import com.apisecurity.monitor.anomaly.bruteforce.service.BruteForceAuthenticationEventListener;
 import com.apisecurity.monitor.anomaly.payload.config.QueryPayloadDetectionProperties;
 import com.apisecurity.monitor.anomaly.payload.service.JsonRequestBodyPayloadInspector;
 import com.apisecurity.monitor.anomaly.payload.service.PayloadSignatureDetector;
 import com.apisecurity.monitor.monitoring.dto.MonitoringSummaryResponse;
 import com.apisecurity.monitor.monitoring.dto.PagedResponse;
+import com.apisecurity.monitor.monitoring.config.MonitoringTimeConfiguration;
 import com.apisecurity.monitor.monitoring.service.MonitoringQueryService;
 import com.apisecurity.monitor.requestlog.config.RequestLoggingProperties;
 import com.apisecurity.monitor.requestlog.service.ApiRequestLogService;
 import com.apisecurity.monitor.security.SecurityConfiguration;
+import com.apisecurity.monitor.securityevent.model.SecurityEventData;
+import com.apisecurity.monitor.securityevent.model.SecurityEventType;
+import com.apisecurity.monitor.securityevent.service.SecurityEventService;
 import com.apisecurity.monitor.testapi.TestController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +31,11 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -39,7 +51,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         MonitoringPageController.class,
         TestController.class
 })
-@Import(SecurityConfiguration.class)
+@Import({
+        SecurityConfiguration.class,
+        MonitoringTimeConfiguration.class,
+        BruteForceDetectionProperties.class,
+        BruteForceAttemptTracker.class,
+        BruteForceAuthenticationEventListener.class
+})
 @TestPropertySource(properties = {
         "monitoring.security.admin-username=admin",
         "monitoring.security.admin-password=test-only-password"
@@ -68,6 +86,9 @@ class MonitoringControllerSecurityTest {
 
     @MockitoBean
     private JsonRequestBodyPayloadInspector jsonRequestBodyPayloadInspector;
+
+    @MockitoBean
+    private SecurityEventService securityEventService;
 
     @Test
     void redirectsUnauthenticatedMonitoringApiAndPageToLogin() throws Exception {
@@ -135,6 +156,7 @@ class MonitoringControllerSecurityTest {
                 .andExpect(content().string(containsString("Loading requests")))
                 .andExpect(content().string(containsString("Detected security events")))
                 .andExpect(content().string(containsString("signature indicator")))
+                .andExpect(content().string(containsString("BRUTE_FORCE_ATTEMPT")))
                 .andExpect(content().string(containsString("textContent")));
     }
 
@@ -144,5 +166,124 @@ class MonitoringControllerSecurityTest {
                         .param("username", "admin")
                         .param("password", "test-only-password"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void authenticationFailureEventsUseTheTrustedServletRemoteAddress() throws Exception {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/login")
+                            .with(csrf())
+                            .with(request -> {
+                                request.setRemoteAddr("192.0.2.10");
+                                return request;
+                            })
+                            .header("X-Forwarded-For", "203.0.113.99")
+                            .param("username", "admin")
+                            .param("password", "wrong-password"))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/login?error"));
+        }
+
+        org.mockito.ArgumentCaptor<SecurityEventData> captor =
+                org.mockito.ArgumentCaptor.forClass(SecurityEventData.class);
+        verify(securityEventService).createIfNotSuppressed(captor.capture(), any());
+        assertThat(captor.getValue().eventType()).isEqualTo(SecurityEventType.BRUTE_FORCE_ATTEMPT);
+        assertThat(captor.getValue().clientIp()).isEqualTo("192.0.2.10");
+    }
+
+    @Test
+    void successfulAuthenticationEventResetsMatchingFailureHistory() throws Exception {
+        performFailedLogins("192.0.2.11", 4);
+
+        mockMvc.perform(post("/login")
+                        .with(csrf())
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.11");
+                            return request;
+                        })
+                        .param("username", "admin")
+                        .param("password", "test-only-password"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/monitoring"));
+
+        performFailedLogins("192.0.2.11", 4);
+
+        verify(securityEventService, never()).createIfNotSuppressed(any(), any());
+    }
+
+    @Test
+    void successfulAuthenticationResetsMixedCaseFailuresForTheSameAccount() throws Exception {
+        performFailedLogins("192.0.2.14", "ADMIN", 4);
+
+        mockMvc.perform(post("/login")
+                        .with(csrf())
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.14");
+                            return request;
+                        })
+                        .param("username", "admin")
+                        .param("password", "test-only-password"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/monitoring"));
+
+        performFailedLogins("192.0.2.14", "AdMiN", 4);
+
+        verify(securityEventService, never()).createIfNotSuppressed(any(), any());
+    }
+
+    @Test
+    void csrfAndAuthorizationResponsesAreNotAuthenticationFailures() throws Exception {
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/login")
+                            .with(request -> {
+                                request.setRemoteAddr("192.0.2.12");
+                                return request;
+                            })
+                            .param("username", "admin")
+                            .param("password", "wrong-password"))
+                    .andExpect(status().isForbidden());
+
+            mockMvc.perform(get("/monitoring")
+                            .with(request -> {
+                                request.setRemoteAddr("192.0.2.12");
+                                return request;
+                            }))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/login"));
+
+            mockMvc.perform(get("/monitoring").with(user("ordinary-user").roles("USER")))
+                    .andExpect(status().isForbidden());
+        }
+
+        verify(securityEventService, never()).createIfNotSuppressed(any(), any());
+    }
+
+    @Test
+    void eventPersistenceFailureDoesNotChangeTheFailedLoginResponse() throws Exception {
+        doThrow(new IllegalStateException("database unavailable"))
+                .when(securityEventService).createIfNotSuppressed(any(), any());
+
+        performFailedLogins("192.0.2.13", 5);
+
+        verify(securityEventService).createIfNotSuppressed(any(), any());
+    }
+
+    private void performFailedLogins(String remoteAddress, int attempts) throws Exception {
+        performFailedLogins(remoteAddress, "admin", attempts);
+    }
+
+    private void performFailedLogins(String remoteAddress, String username, int attempts) throws Exception {
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            mockMvc.perform(post("/login")
+                            .with(csrf())
+                            .with(request -> {
+                                request.setRemoteAddr(remoteAddress);
+                                return request;
+                            })
+                            .param("username", username)
+                            .param("password", "wrong-password"))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/login?error"));
+        }
     }
 }
