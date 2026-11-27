@@ -57,6 +57,29 @@ class SecurityEventWriterTest {
     }
 
     @Test
+    void mapsAuthenticationEventWithoutFabricatingARequestLogIdentifier() {
+        SecurityEventWriter writer = new SecurityEventWriter(repository);
+        SecurityEventData data = new SecurityEventData(
+                SecurityEventType.BRUTE_FORCE_ATTEMPT,
+                RiskLevel.HIGH,
+                Instant.parse("2026-11-27T08:00:00Z"),
+                "127.0.0.1",
+                "Potential brute-force indicator.",
+                null,
+                5,
+                5,
+                60
+        );
+
+        writer.insert(data, "brute-force-dedup-key");
+
+        ArgumentCaptor<SecurityEvent> captor = ArgumentCaptor.forClass(SecurityEvent.class);
+        verify(repository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getEventType()).isEqualTo(SecurityEventType.BRUTE_FORCE_ATTEMPT);
+        assertThat(captor.getValue().getSourceRequestLogId()).isNull();
+    }
+
+    @Test
     void insertUsesIndependentTransaction() throws NoSuchMethodException {
         Transactional transactional = SecurityEventWriter.class
                 .getMethod("insert", SecurityEventData.class, String.class)

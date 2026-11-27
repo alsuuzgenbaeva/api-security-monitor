@@ -36,6 +36,13 @@ monitoring:
       threshold: 5
       window: 10s
       suppression-period: 30s
+    brute-force:
+      enabled: true
+      threshold: 5
+      window: 60s
+      suppression-period: 60s
+      max-tracked-clients: 1000
+      max-attempts-per-client: 100
     query-payload:
       enabled: true
       max-query-length: 8192

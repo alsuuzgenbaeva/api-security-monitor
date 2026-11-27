@@ -135,4 +135,36 @@ class MonitoringQueryServiceTest {
                 10
         ));
     }
+
+    @Test
+    void mapsAuthenticationOriginatedEventsWithoutARequestLogReference() {
+        SecurityEvent event = new SecurityEvent(new SecurityEventData(
+                SecurityEventType.BRUTE_FORCE_ATTEMPT,
+                RiskLevel.HIGH,
+                NOW.minusSeconds(5),
+                "127.0.0.1",
+                "Potential brute-force indicator.",
+                null,
+                5,
+                5,
+                60
+        ), "brute-force-deduplication-key");
+        ReflectionTestUtils.setField(event, "id", 10L);
+        when(securityEventRepository.findAll(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(event)));
+
+        PagedResponse<SecurityEventResponse> response = service.getEvents(0, 20);
+
+        assertThat(response.content()).containsExactly(new SecurityEventResponse(
+                10L,
+                SecurityEventType.BRUTE_FORCE_ATTEMPT,
+                RiskLevel.HIGH,
+                NOW.minusSeconds(5),
+                "127.0.0.1",
+                "Potential brute-force indicator.",
+                5,
+                5,
+                60
+        ));
+    }
 }
