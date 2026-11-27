@@ -101,7 +101,7 @@ public class QueryPayloadAttackDetector {
         return switch (eventType) {
             case XSS_ATTEMPT -> "XSS attempt";
             case SQL_INJECTION_ATTEMPT -> "SQL injection attempt";
-            case EXCESSIVE_REQUESTS, BRUTE_FORCE_ATTEMPT ->
+            case EXCESSIVE_REQUESTS, BRUTE_FORCE_ATTEMPT, ENDPOINT_SCANNING, ABNORMAL_ERROR_RATE ->
                     throw new IllegalArgumentException("Unsupported payload event type");
         };
     }

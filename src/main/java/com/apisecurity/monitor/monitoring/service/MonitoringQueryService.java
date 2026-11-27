@@ -100,7 +100,11 @@ public class MonitoringQueryService {
                 event.getDetectionReason(),
                 event.getObservedRequestCount(),
                 event.getConfiguredThreshold(),
-                event.getWindowSeconds()
+                event.getWindowSeconds(),
+                event.getObservedDistinctPathCount(),
+                event.getConfiguredDistinctPathThreshold(),
+                event.getObservedClientErrorCount(),
+                event.getConfiguredClientErrorRatePercent()
         );
     }
 }

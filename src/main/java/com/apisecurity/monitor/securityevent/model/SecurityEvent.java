@@ -61,6 +61,18 @@ public class SecurityEvent {
     @Column(name = "window_seconds", nullable = false)
     private long windowSeconds;
 
+    @Column(name = "observed_distinct_path_count")
+    private Long observedDistinctPathCount;
+
+    @Column(name = "configured_distinct_path_threshold")
+    private Integer configuredDistinctPathThreshold;
+
+    @Column(name = "observed_client_error_count")
+    private Long observedClientErrorCount;
+
+    @Column(name = "configured_client_error_rate_percent")
+    private Integer configuredClientErrorRatePercent;
+
     @Column(name = "deduplication_key", nullable = false, length = 160)
     private String deduplicationKey;
 
@@ -77,6 +89,10 @@ public class SecurityEvent {
         this.observedRequestCount = data.observedRequestCount();
         this.configuredThreshold = data.configuredThreshold();
         this.windowSeconds = data.windowSeconds();
+        this.observedDistinctPathCount = data.observedDistinctPathCount();
+        this.configuredDistinctPathThreshold = data.configuredDistinctPathThreshold();
+        this.observedClientErrorCount = data.observedClientErrorCount();
+        this.configuredClientErrorRatePercent = data.configuredClientErrorRatePercent();
         this.deduplicationKey = deduplicationKey;
     }
 
@@ -118,6 +134,22 @@ public class SecurityEvent {
 
     public long getWindowSeconds() {
         return windowSeconds;
+    }
+
+    public Long getObservedDistinctPathCount() {
+        return observedDistinctPathCount;
+    }
+
+    public Integer getConfiguredDistinctPathThreshold() {
+        return configuredDistinctPathThreshold;
+    }
+
+    public Long getObservedClientErrorCount() {
+        return observedClientErrorCount;
+    }
+
+    public Integer getConfiguredClientErrorRatePercent() {
+        return configuredClientErrorRatePercent;
     }
 
     public String getDeduplicationKey() {

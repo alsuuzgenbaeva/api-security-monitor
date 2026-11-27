@@ -66,6 +66,7 @@ class ApiRequestLogServiceTest {
         assertThat(eventCaptor.getValue().requestLogId()).isEqualTo(42L);
         assertThat(eventCaptor.getValue().requestedAt()).isEqualTo(timestamp);
         assertThat(eventCaptor.getValue().clientIp()).isEqualTo("127.0.0.1");
+        assertThat(eventCaptor.getValue().responseStatus()).isEqualTo(200);
         assertThat(eventCaptor.getValue().payloadFindings()).isEmpty();
     }
 

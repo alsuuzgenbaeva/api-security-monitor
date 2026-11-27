@@ -157,6 +157,9 @@ class MonitoringControllerSecurityTest {
                 .andExpect(content().string(containsString("Detected security events")))
                 .andExpect(content().string(containsString("signature indicator")))
                 .andExpect(content().string(containsString("BRUTE_FORCE_ATTEMPT")))
+                .andExpect(content().string(containsString("ENDPOINT_SCANNING")))
+                .andExpect(content().string(containsString("ABNORMAL_ERROR_RATE")))
+                .andExpect(content().string(containsString("eligible client errors")))
                 .andExpect(content().string(containsString("textContent")));
     }
 

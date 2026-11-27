@@ -68,15 +68,21 @@ class SecurityEventServiceTest {
         SecurityEventData xss = data(SecurityEventType.XSS_ATTEMPT);
         SecurityEventData sqlInjection = data(SecurityEventType.SQL_INJECTION_ATTEMPT);
         SecurityEventData bruteForce = data(SecurityEventType.BRUTE_FORCE_ATTEMPT);
+        SecurityEventData endpointScanning = data(SecurityEventType.ENDPOINT_SCANNING);
+        SecurityEventData abnormalErrorRate = data(SecurityEventType.ABNORMAL_ERROR_RATE);
 
         assertThat(service.createIfNotSuppressed(xss, Duration.ofSeconds(30))).isTrue();
         assertThat(service.createIfNotSuppressed(sqlInjection, Duration.ofSeconds(30))).isTrue();
         assertThat(service.createIfNotSuppressed(bruteForce, Duration.ofSeconds(30))).isTrue();
+        assertThat(service.createIfNotSuppressed(endpointScanning, Duration.ofSeconds(30))).isTrue();
+        assertThat(service.createIfNotSuppressed(abnormalErrorRate, Duration.ofSeconds(30))).isTrue();
 
         long expectedBucket = Math.floorDiv(OCCURRED_AT.getEpochSecond(), 30);
         verify(writer).insert(xss, "XSS_ATTEMPT|127.0.0.1|" + expectedBucket);
         verify(writer).insert(sqlInjection, "SQL_INJECTION_ATTEMPT|127.0.0.1|" + expectedBucket);
         verify(writer).insert(bruteForce, "BRUTE_FORCE_ATTEMPT|127.0.0.1|" + expectedBucket);
+        verify(writer).insert(endpointScanning, "ENDPOINT_SCANNING|127.0.0.1|" + expectedBucket);
+        verify(writer).insert(abnormalErrorRate, "ABNORMAL_ERROR_RATE|127.0.0.1|" + expectedBucket);
     }
 
     @Test
